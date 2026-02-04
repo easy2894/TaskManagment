@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TaskFlow - Управление задачами</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Боковая панель -->
+        <aside class="sidebar">
+            <div class="logo">
+                <div class="logo-icon">◈</div>
+                <h1>TaskFlow</h1>
+            </div>
+            
+            <nav class="nav-menu">
+                <button class="nav-item active" data-view="tasks">
+                    <span class="nav-icon">✓</span>
+                    <span>Задачи</span>
+                </button>
+                <button class="nav-item" data-view="users">
+                    <span class="nav-icon">👥</span>
+                    <span>Пользователи</span>
+                </button>
+                <button class="nav-item" data-view="roles">
+                    <span class="nav-icon">⚙</span>
+                    <span>Роли</span>
+                </button>
+            </nav>
+
+            <div class="sidebar-footer">
+                <button class="btn-secondary" id="exportBtn">
+                    <span>↓</span> Экспорт Excel
+                </button>
+                <button class="btn-secondary" id="importBtn">
+                    <span>↑</span> Импорт Excel
+                </button>
+                <input type="file" id="fileInput" accept=".xlsx,.xls" style="display: none;">
+            </div>
+        </aside>
+
+        <!-- Основной контент -->
+        <main class="main-content">
+            <!-- Заголовок -->
+            <header class="content-header">
+                <div class="header-left">
+                    <h2 id="pageTitle">Управление задачами</h2>
+                    <p class="subtitle" id="pageSubtitle">Создавайте, назначайте и отслеживайте задачи</p>
+                </div>
+                <button class="btn-primary" id="createTaskBtn">
+                    <span>+</span> Создать задачу
+                </button>
+            </header>
+
+            <!-- Фильтры -->
+            <div class="filters" id="taskFilters">
+                <div class="filter-group">
+                    <label>Статус</label>
+                    <select id="filterStatus">
+                        <option value="all">Все статусы</option>
+                        <option value="new">Новая</option>
+                        <option value="in_progress">В работе</option>
+                        <option value="review">На проверке</option>
+                        <option value="completed">Завершена</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Приоритет</label>
+                    <select id="filterPriority">
+                        <option value="all">Все приоритеты</option>
+                        <option value="high">Высокий</option>
+                        <option value="medium">Средний</option>
+                        <option value="low">Низкий</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Ответственный</label>
+                    <select id="filterAssignee">
+                        <option value="all">Все</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Список задач -->
+            <div class="content-body" id="tasksView">
+                <div id="tasksList" class="tasks-list"></div>
+            </div>
+
+            <!-- Управление пользователями -->
+            <div class="content-body hidden" id="usersView">
+                <div class="users-header">
+                    <button class="btn-primary" id="createUserBtn">
+                        <span>+</span> Добавить пользователя
+                    </button>
+                </div>
+                <div id="usersList" class="users-list"></div>
+            </div>
+
+            <!-- Управление ролями -->
+            <div class="content-body hidden" id="rolesView">
+                <div class="roles-header">
+                    <button class="btn-primary" id="createRoleBtn">
+                        <span>+</span> Создать роль
+                    </button>
+                </div>
+                <div id="rolesList" class="roles-list"></div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Модальное окно для задачи -->
+    <div id="taskModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">Создать задачу</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="taskForm">
+                    <input type="hidden" id="taskId">
+                    
+                    <div class="form-group">
+                        <label for="taskTitle">Название задачи *</label>
+                        <input type="text" id="taskTitle" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="taskDescription">Описание</label>
+                        <textarea id="taskDescription" rows="4"></textarea>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="taskStatus">Статус *</label>
+                            <select id="taskStatus" required>
+                                <option value="new">Новая</option>
+                                <option value="in_progress">В работе</option>
+                                <option value="review">На проверке</option>
+                                <option value="completed">Завершена</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="taskPriority">Приоритет *</label>
+                            <select id="taskPriority" required>
+                                <option value="low">Низкий</option>
+                                <option value="medium" selected>Средний</option>
+                                <option value="high">Высокий</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="taskAssignee">Ответственный</label>
+                            <select id="taskAssignee">
+                                <option value="">Не назначен</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="taskDeadline">Дедлайн</label>
+                            <input type="datetime-local" id="taskDeadline">
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="button" class="btn-secondary modal-close">Отмена</button>
+                        <button type="submit" class="btn-primary">Сохранить</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно для пользователя -->
+    <div id="userModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Добавить пользователя</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="userForm">
+                    <input type="hidden" id="userId">
+                    
+                    <div class="form-group">
+                        <label for="userName">Имя *</label>
+                        <input type="text" id="userName" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="userEmail">Email *</label>
+                        <input type="email" id="userEmail" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="userRole">Роль</label>
+                        <select id="userRole">
+                            <option value="">Не назначена</option>
+                        </select>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="button" class="btn-secondary modal-close">Отмена</button>
+                        <button type="submit" class="btn-primary">Сохранить</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно для роли -->
+    <div id="roleModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Создать роль</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="roleForm">
+                    <input type="hidden" id="roleId">
+                    
+                    <div class="form-group">
+                        <label for="roleName">Название роли *</label>
+                        <input type="text" id="roleName" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="roleDescription">Описание</label>
+                        <textarea id="roleDescription" rows="3"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Права доступа</label>
+                        <div class="checkbox-group">
+                            <label>
+                                <input type="checkbox" id="permCreate" value="create">
+                                Создавать задачи
+                            </label>
+                            <label>
+                                <input type="checkbox" id="permEdit" value="edit">
+                                Редактировать задачи
+                            </label>
+                            <label>
+                                <input type="checkbox" id="permDelete" value="delete">
+                                Удалять задачи
+                            </label>
+                            <label>
+                                <input type="checkbox" id="permAssign" value="assign">
+                                Назначать ответственных
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="button" class="btn-secondary modal-close">Отмена</button>
+                        <button type="submit" class="btn-primary">Сохранить</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Уведомления -->
+    <div id="notifications" class="notifications-container"></div>
+
+    <script src="app.js"></script>
+</body>
+</html>
